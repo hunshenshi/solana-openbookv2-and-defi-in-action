@@ -252,3 +252,5 @@ pub struct OpenOrder {
 这种分层设计的好处不仅在于结构清晰、可扩展性强，也为后续的订单查询、清算、权限管理等功能提供了良好的基础。理解这一机制，对于深入掌握后续如“下单”、“撮合”、“资金结算”等流程，将非常关键。
 
 接下来，我们就将在这个基础上，深入分析 **下单（`place_order`）的完整逻辑**，看看挂单账户是如何在订单簿中产生真正的订单的。
+
+更多内容可查看在github上的项目--[深入Solana OpenBook-V2源码分析与DeFi 合约实战](https://github.com/hunshenshi/solana-openbookv2-and-defi-in-action)

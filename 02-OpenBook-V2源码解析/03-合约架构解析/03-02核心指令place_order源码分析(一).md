@@ -188,15 +188,12 @@ pub struct PlaceOrder<'info> {
 `market`、`bids`、`asks`、`event_heap`和`market_vault`都是与交易市场相关的账户，`market`记录当前订单的交易市场，`bids`和`asks`分别为该市场的买入订单薄和卖出订单簿，`event_heap`是事件堆，用于记录撮合结果，`market_vault`是市场的资金池账户。
 `oracle_a`和`oracle_b`分别为外部预言机账户，用于一些市场限价控制或者风控。
 
-参数已经梳理完了，现在梳理下下单的内部逻辑，代码如下：
+参数已经梳理完了，现在梳理下下单的内部逻辑，这块实现代码量较大，这里将整块逻辑划分五块进行拆分，主要分为**市场状态加载**、**撮合订单**、**计算需锁定的用户保证金**、**事件堆惩罚计数**和**资产转账**。
+
+### 市场状态加载
+市场状态加载代码如下：
 
 ``` Rust
-pub fn place_order<'c: 'info, 'info>(
-    ctx: Context<'_, '_, 'c, 'info, PlaceOrder<'info>>,
-    order: Order,
-    limit: u8,
-) -> Result<Option<u128>> {
-    ...
     let mut open_orders_account = ctx.accounts.open_orders_account.load_mut()?;
     let open_orders_account_pk = ctx.accounts.open_orders_account.key();
 
@@ -227,7 +224,14 @@ pub fn place_order<'c: 'info, 'info>(
         AccountInfoRef::borrow_some(ctx.accounts.oracle_b.as_ref())?.as_ref(),
         clock.slot,
     )?;
+```
 
+首先需要加载`open_orders_account`账户，因为未成交的订单需要挂载到该账户下，随后加载`market`账户和撮合交易时需要用到的订单树`bids/asks`账户，账户加载之后，还需要一些校验以保证代码的合法性，最后加载`event_heap`和`oracle_price_lots`，`event_heap`主要用于存放事件，然后根据事件堆的长度判断是否需要惩罚。
+
+### 撮合订单
+撮合订单调用`book.new_order`进行撮合和挂单，返回订单执行结果（成交量、挂单量、费用等）。
+
+``` Rust
     let OrderWithAmounts {
         order_id,
         total_base_taken_native,
@@ -249,7 +253,12 @@ pub fn place_order<'c: 'info, 'info>(
         limit,
         ctx.remaining_accounts,
     )?;
+```
 
+### 计算需锁定的用户保证金
+撮合订单之后算出所需的quote token或者base token，然后根据其计算需要锁定的资产数量（base/quote），并更新用户和市场的余额。
+
+``` Rust
     let position = &mut open_orders_account.position;
     let deposit_amount = match order.side {
         Side::Bid => {
@@ -281,11 +290,21 @@ pub fn place_order<'c: 'info, 'info>(
             deposit_amount
         }
     };
+```
 
-    if event_heap.len() > event_heap_size_before {
+### 事件堆惩罚计数
+事件堆惩罚计数就是判断事件堆长度增加，说明有新事件（如撮合），则对用户进行惩罚计数（如惩罚性费用）。
+
+``` Rust
+if event_heap.len() > event_heap_size_before {
         position.penalty_heap_count += 1;
     }
+```
 
+### 资产转账
+之前算出用户需要缴纳的保证金`deposit_amount`，然后调用 token_transfer，将用户资产转入市场金库（vault）。
+
+``` Rust
     token_transfer(
         deposit_amount,
         &ctx.accounts.token_program,
@@ -293,24 +312,10 @@ pub fn place_order<'c: 'info, 'info>(
         &ctx.accounts.market_vault,
         &ctx.accounts.signer,
     )?;
-
-    Ok(order_id)
-}
 ```
 
+完成以上逻辑之后，最后返回`order_id`，`order_id`是在`book.new_order`中生成的。
 
+通过跟读这个方法，了解到`place_order`的流程，但是其核心的撮合交易细节在`book.new_order`中，其具体的内容放在下一章节中介绍。
 
-
-市场状态加载
-撮合订单
-计算需锁定的用户保证金
-事件堆惩罚计数
-资产转账
-
-
-
-
-
-
-
-
+更多内容可查看在github上的项目--[深入Solana OpenBook-V2源码分析与DeFi 合约实战](https://github.com/hunshenshi/solana-openbookv2-and-defi-in-action)

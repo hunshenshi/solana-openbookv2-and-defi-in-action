@@ -271,3 +271,5 @@ pub struct Market {
     });
 ```
 这里是通过调用`emit_cpi!`来发送事件日志的，该方法主要用于CPI之间的调用。
+
+更多内容可查看在github上的项目--[深入Solana OpenBook-V2源码分析与DeFi 合约实战](https://github.com/hunshenshi/solana-openbookv2-and-defi-in-action)

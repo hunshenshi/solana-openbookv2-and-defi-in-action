@@ -119,3 +119,5 @@ programs/openbook-v2/
 ```
 
 主要模块是`instructions`、`accounts_ix`和`state`模块，而且交互也比较紧密，不过也可以将`instructions`和`accounts_ix`结合在一起先阅读，然后在单独阅读`state`模块，理解下`orderbook`设计的精妙之处。
+
+更多内容可查看在github上的项目--[深入Solana OpenBook-V2源码分析与DeFi 合约实战](https://github.com/hunshenshi/solana-openbookv2-and-defi-in-action)
